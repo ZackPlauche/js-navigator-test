@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Contacts</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden md:max-w-2xl m-4">
+        <div class="p-8">
+            <h1 class="text-2xl font-bold text-gray-900 mb-4">Phone Contacts</h1>
+            
+            <div id="not-supported" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                <p>Sorry, the Contacts API is not supported in your browser.</p>
+            </div>
+            
+            <div id="ios-device" class="hidden bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded mb-4">
+                <p>You appear to be using an iOS device. The Contact Picker API has limited support on iOS Safari.</p>
+                <p class="mt-2">This feature works best on Chrome for Android.</p>
+            </div>
+            
+            <div id="permission-denied" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                <p>Permission to access contacts was denied.</p>
+            </div>
+            
+            <button id="access-contacts" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Get Contacts
+            </button>
+            
+            <div id="contacts-list" class="mt-4">
+                <ul id="contacts" class="divide-y divide-gray-200"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const accessButton = document.getElementById('access-contacts');
+            const notSupportedMessage = document.getElementById('not-supported');
+            const iOSMessage = document.getElementById('ios-device');
+            const permissionDeniedMessage = document.getElementById('permission-denied');
+            const contactsList = document.getElementById('contacts');
+            
+            // Check if device is iOS
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            
+            // If iOS, show warning but still try to use the API (it might work in some cases)
+            if (isIOS) {
+                iOSMessage.classList.remove('hidden');
+            }
+            
+            // Check if Contacts API is supported
+            if ('contacts' in navigator && 'select' in navigator.contacts) {
+                accessButton.addEventListener('click', async () => {
+                    try {
+                        // For browsers that support getProperties
+                        let properties = ['name', 'email', 'tel', 'address'];
+                        if ('getProperties' in navigator.contacts) {
+                            try {
+                                properties = await navigator.contacts.getProperties();
+                                console.log('Available properties:', properties);
+                            } catch (e) {
+                                console.log('Could not get properties, using defaults');
+                            }
+                        }
+                        
+                        const contacts = await navigator.contacts.select(
+                            properties,
+                            { multiple: true }
+                        );
+                        
+                        displayContacts(contacts);
+                        
+                    } catch (error) {
+                        console.error('Error accessing contacts:', error);
+                        permissionDeniedMessage.classList.remove('hidden');
+                    }
+                });
+            } else {
+                accessButton.disabled = true;
+                notSupportedMessage.classList.remove('hidden');
+                console.log('Contacts API not supported');
+            }
+            
+            function displayContacts(contacts) {
+                contactsList.innerHTML = '';
+                
+                if (contacts.length === 0) {
+                    const li = document.createElement('li');
+                    li.className = 'py-4';
+                    li.textContent = 'No contacts selected.';
+                    contactsList.appendChild(li);
+                    return;
+                }
+                
+                contacts.forEach(contact => {
+                    const li = document.createElement('li');
+                    li.className = 'py-4';
+                    
+                    const contactDiv = document.createElement('div');
+                    
+                    // Name
+                    if (contact.name && contact.name.length > 0) {
+                        const nameHeader = document.createElement('h3');
+                        nameHeader.className = 'text-lg font-medium text-gray-900';
+                        nameHeader.textContent = contact.name[0];
+                        contactDiv.appendChild(nameHeader);
+                    }
+                    
+                    // Phone
+                    if (contact.tel && contact.tel.length > 0) {
+                        const phoneDiv = document.createElement('div');
+                        phoneDiv.className = 'mt-1';
+                        
+                        contact.tel.forEach(phone => {
+                            const phoneP = document.createElement('p');
+                            phoneP.className = 'text-sm text-gray-500';
+                            phoneP.innerHTML = `<strong>Phone:</strong> ${phone}`;
+                            phoneDiv.appendChild(phoneP);
+                        });
+                        
+                        contactDiv.appendChild(phoneDiv);
+                    }
+                    
+                    // Email
+                    if (contact.email && contact.email.length > 0) {
+                        const emailDiv = document.createElement('div');
+                        emailDiv.className = 'mt-1';
+                        
+                        contact.email.forEach(email => {
+                            const emailP = document.createElement('p');
+                            emailP.className = 'text-sm text-gray-500';
+                            emailP.innerHTML = `<strong>Email:</strong> ${email}`;
+                            emailDiv.appendChild(emailP);
+                        });
+                        
+                        contactDiv.appendChild(emailDiv);
+                    }
+                    
+                    // Address
+                    if (contact.address && contact.address.length > 0) {
+                        const addressDiv = document.createElement('div');
+                        addressDiv.className = 'mt-1';
+                        
+                        contact.address.forEach(address => {
+                            const addressP = document.createElement('p');
+                            addressP.className = 'text-sm text-gray-500';
+                            addressP.innerHTML = `<strong>Address:</strong> ${address}`;
+                            addressDiv.appendChild(addressP);
+                        });
+                        
+                        contactDiv.appendChild(addressDiv);
+                    }
+                    
+                    // Icon (contact photo)
+                    if (contact.icon && contact.icon.length > 0) {
+                        const img = document.createElement('img');
+                        img.className = 'h-12 w-12 rounded-full object-cover float-right';
+                        img.src = URL.createObjectURL(contact.icon[0]);
+                        contactDiv.appendChild(img);
+                    }
+                    
+                    li.appendChild(contactDiv);
+                    contactsList.appendChild(li);
+                });
+            }
+        });
+    </script>
+</body>
+</html> 
